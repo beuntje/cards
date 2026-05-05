@@ -1,0 +1,277 @@
+{% extends 'base.html.twig' %}
+
+{% set is_edit = card is defined and card %}
+
+{% block title %}{{ is_edit ? 'Edit' : 'Add' }} Card — Cards{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h2>{{ is_edit ? 'Edit' : 'Add' }} Card</h2>
+
+  <form method="POST" action="{{ is_edit ? '/cards/' ~ card.id ~ '/edit' : '/cards/create' }}" class="card-form" id="card-form">
+    <label for="name">Card name</label>
+    <input type="text" id="name" name="name" required value="{{ card.name ?? '' }}" placeholder="e.g. Supermarket Bonus Card">
+
+    <label>Logo</label>
+    <div id="logo-selected" class="logo-selected" {% if not (card.logo is defined and card.logo) %}style="display:none"{% endif %}>
+      <img id="logo-selected-img" src="{{ card.logo ?? '' }}" alt="Selected logo">
+      <span id="logo-selected-name">{{ card.name ?? '' }}</span>
+      <button type="button" class="btn btn-sm btn-danger" id="logo-remove-btn">✕</button>
+    </div>
+    <div class="logo-search">
+      <div class="logo-search-box">
+        <input type="text" id="logo-query" placeholder="Search brand name..." value="{{ card.name ?? '' }}">
+        <button type="button" id="logo-search-btn" class="logo-search-submit">🔍</button>
+      </div>
+      <label class="btn btn-sm" id="logo-upload-btn">📁 Upload<input type="file" id="logo-file-input" accept="image/*" hidden></label>
+      <button type="button" id="logo-url-btn" class="btn btn-sm">🔗 URL</button>
+    </div>
+    <div id="logo-url-input-wrap" class="logo-actions" style="display:none;">
+      <input type="text" id="logo-url-input" placeholder="https://example.com/logo.png" style="flex:1;">
+      <button type="button" id="logo-url-confirm" class="btn btn-sm">Add</button>
+    </div>
+    <div id="logo-results" class="logo-results"></div>
+    <input type="hidden" id="logo_url" name="logo_url" value="{{ card.logo ?? '' }}">
+
+    {% if is_edit %}
+    <label for="color">Background color</label>
+    <input type="color" id="color" name="color" value="{{ card.color ?? '#ffffff' }}">
+
+    <label class="toggle-label">
+      <input type="checkbox" name="favorite" value="1" {{ card.favorite ? 'checked' }}>
+      <span class="toggle-text">Always show on top</span>
+    </label>
+    {% endif %}
+
+    {% if not is_edit %}
+    <hr class="form-divider">
+
+    <div id="add-method-chooser" class="add-method-chooser">
+      <button type="button" class="add-method-option active" data-method="camera">
+        <span class="add-method-icon">📷</span>
+        <span class="add-method-label">Camera</span>
+      </button>
+      <button type="button" class="add-method-option" data-method="upload">
+        <span class="add-method-icon">🖼️</span>
+        <span class="add-method-label">Upload</span>
+      </button>
+      <button type="button" class="add-method-option" data-method="manual">
+        <span class="add-method-icon">⌨️</span>
+        <span class="add-method-label">Manual</span>
+      </button>
+    </div>
+
+    <div id="panel-camera" class="add-panel">
+      <div id="scanner-container" class="scanner-container"></div>
+      <div id="scan-status" class="scan-status"></div>
+    </div>
+
+    <div id="panel-upload" class="add-panel" style="display:none;">
+      <label for="card-image-input" class="upload-area" id="upload-area">
+        <span class="add-method-icon">🖼️</span>
+        <span>Tap to select an image</span>
+        <input type="file" id="card-image-input" accept="image/*" hidden>
+      </label>
+      <div id="upload-reader" style="display:none;"></div>
+      <div id="upload-status" class="scan-status"></div>
+    </div>
+
+    <div id="panel-manual" class="add-panel" style="display:none;">
+    </div>
+    {% endif %}
+
+    <div id="manual-fields" {% if not is_edit %}style="display:none;"{% endif %}>
+      <label for="number">Card number</label>
+      <input type="text" id="number" name="number" {% if is_edit %}required{% endif %} value="{{ card.number ?? '' }}" placeholder="Card number">
+
+      <label for="barcode_type">Barcode type</label>
+      <select id="barcode_type" name="barcode_type">
+        {% set types = ['ean_13', 'ean_8', 'code_128', 'code_39', 'itf', 'codabar', 'qr'] %}
+        {% for t in types %}
+          <option value="{{ t }}" {{ (card.barcode_type ?? 'code_128') == t ? 'selected' }}>{{ t|replace({'_': ' '})|upper }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" id="submit-btn" {% if not is_edit %}disabled{% endif %}>{{ is_edit ? 'Update' : 'Add' }} Card</button>
+      <a href="/" class="btn">Cancel</a>
+    </div>
+  </form>
+
+  {% if is_edit %}
+  <form method="POST" action="/cards/{{ card.id }}/delete" class="delete-form" onsubmit="return confirm('Delete this card?')">
+    <button type="submit" class="btn btn-danger">Delete Card</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="/assets/js/scanner.js"></script>
+<script>
+(function() {
+  var searchBtn = document.getElementById('logo-search-btn');
+  var queryInput = document.getElementById('logo-query');
+  var nameInput = document.getElementById('name');
+  var results = document.getElementById('logo-results');
+  var logoUrlInput = document.getElementById('logo_url');
+  var selectedBox = document.getElementById('logo-selected');
+  var selectedImg = document.getElementById('logo-selected-img');
+  var selectedName = document.getElementById('logo-selected-name');
+  var removeBtn = document.getElementById('logo-remove-btn');
+  var isEdit = {{ is_edit ? 'true' : 'false' }};
+
+  // Sync card name to logo search on add page
+  var nameTimer = null;
+  var lastSearched = '';
+  if (!isEdit && nameInput) {
+    nameInput.addEventListener('input', function() {
+      if (!logoUrlInput.value) queryInput.value = nameInput.value;
+      clearTimeout(nameTimer);
+      nameTimer = setTimeout(function() {
+        if (!logoUrlInput.value && queryInput.value.trim() && queryInput.value.trim() !== lastSearched) {
+          lastSearched = queryInput.value.trim();
+          doSearch();
+        }
+      }, 3000);
+    });
+    nameInput.addEventListener('blur', function() {
+      clearTimeout(nameTimer);
+      if (!logoUrlInput.value && nameInput.value.trim() && nameInput.value.trim() !== lastSearched) {
+        lastSearched = nameInput.value.trim();
+        doSearch();
+      }
+    });
+  }
+
+  removeBtn.addEventListener('click', function() {
+    logoUrlInput.value = '';
+    selectedBox.style.display = 'none';
+    results.querySelectorAll('.logo-option').forEach(function(o) { o.classList.remove('selected'); });
+  });
+
+  searchBtn.addEventListener('click', doSearch);
+  queryInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+  });
+
+  function selectLogo(url, name) {
+    logoUrlInput.value = url;
+    selectedImg.src = url;
+    selectedName.textContent = name;
+    selectedBox.style.display = '';
+    results.querySelectorAll('.logo-option').forEach(function(o) { o.classList.remove('selected'); });
+  }
+
+  function doSearch() {
+    var query = queryInput.value.trim();
+    if (!query) return;
+
+    results.innerHTML = '<span class="scan-status">Searching...</span>';
+
+    fetch('/api/logo-search?q=' + encodeURIComponent(query))
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.length) {
+          results.innerHTML = '<span class="scan-status">No logos found</span>';
+          return;
+        }
+        results.innerHTML = '';
+        data.forEach(function(item) {
+          var el = document.createElement('div');
+          var isSelected = logoUrlInput.value === item.logo_url;
+          el.className = 'logo-option' + (isSelected ? ' selected' : '');
+          el.innerHTML = '<img src="' + item.logo_url + '" alt="' + item.name + '">'
+            + '<span class="logo-option-name">' + item.name + '</span>'
+            + '<span class="logo-option-check">✓</span>';
+          el.addEventListener('click', function() {
+            selectLogo(item.logo_url, item.name);
+            el.classList.add('selected');
+          });
+          results.appendChild(el);
+        });
+      })
+      .catch(function() {
+        results.innerHTML = '<span class="scan-status">Search failed</span>';
+      });
+  }
+
+  // Logo file upload
+  var logoFileInput = document.getElementById('logo-file-input');
+  if (logoFileInput) {
+    logoFileInput.addEventListener('change', function() {
+      var file = logoFileInput.files[0];
+      if (!file) return;
+      results.innerHTML = '<span class="scan-status">Uploading...</span>';
+      var formData = new FormData();
+      formData.append('logo', file);
+      fetch('/api/logo-upload', { method: 'POST', body: formData })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.path) {
+            selectLogo(data.path, file.name);
+            results.innerHTML = '';
+          } else {
+            results.innerHTML = '<span class="scan-status">Upload failed</span>';
+          }
+        })
+        .catch(function() {
+          results.innerHTML = '<span class="scan-status">Upload failed</span>';
+        });
+    });
+  }
+
+  // Logo URL input
+  var logoUrlBtn = document.getElementById('logo-url-btn');
+  var logoUrlWrap = document.getElementById('logo-url-input-wrap');
+  var logoUrlField = document.getElementById('logo-url-input');
+  var logoUrlConfirm = document.getElementById('logo-url-confirm');
+
+  logoUrlBtn.addEventListener('click', function() {
+    var visible = logoUrlWrap.style.display !== 'none';
+    logoUrlWrap.style.display = visible ? 'none' : '';
+    if (!visible) logoUrlField.focus();
+  });
+
+  logoUrlConfirm.addEventListener('click', applyLogoUrl);
+  logoUrlField.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); applyLogoUrl(); }
+  });
+
+  function applyLogoUrl() {
+    var url = logoUrlField.value.trim();
+    if (!url) return;
+    selectLogo(url, 'Custom logo');
+    logoUrlWrap.style.display = 'none';
+    logoUrlField.value = '';
+  }
+
+  // Form validation: highlight valid name, disable submit until required fields filled
+  var submitBtn = document.getElementById('submit-btn');
+  var formName = document.getElementById('name');
+  var formNumber = document.getElementById('number');
+  var formType = document.getElementById('barcode_type');
+
+  function validateForm() {
+    var nameValid = formName.value.trim().length > 0;
+    var numberValid = formNumber.value.trim().length > 0;
+    var typeValid = formType.value.length > 0;
+
+    formName.classList.toggle('input-valid', nameValid);
+    formNumber.classList.toggle('input-valid', numberValid);
+    formType.classList.toggle('input-valid', typeValid);
+
+    if (!isEdit) {
+      submitBtn.disabled = !(nameValid && numberValid && typeValid);
+    }
+  }
+
+  formName.addEventListener('input', validateForm);
+  formNumber.addEventListener('input', validateForm);
+  formType.addEventListener('change', validateForm);
+  validateForm();
+})();
+</script>
+{% endblock %}

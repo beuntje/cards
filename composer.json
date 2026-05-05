@@ -1,0 +1,21 @@
+{
+  "name": "beuntje/cards",
+  "require": {
+    "php": "^8.0",
+    "twig/twig": "^3.0",
+    "vlucas/phpdotenv": "^5.6",
+    "firebase/php-jwt": "^6.0",
+    "picqer/php-barcode-generator": "^3.2",
+    "chillerlan/php-qrcode": "^6.0"
+  },
+  "config": {
+    "audit": {
+      "ignore": ["PKSA-y2cr-5h3j-g3ys"]
+    }
+  },
+  "autoload": {
+    "psr-4": {
+      "Cards\\": "src/"
+    }
+  }
+}

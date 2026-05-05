@@ -1,0 +1,97 @@
+{% extends 'base.html.twig' %}
+
+
+{% block title %}{{ card.name }} — Cards{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="card-show">
+    <div class="card-show-header"{% if card.color %} style="background-color: {{ card.color }}"{% endif %}>
+      {% if card.logo %}
+        <img src="{{ card.logo }}" alt="{{ card.name }}" class="card-show-logo">
+      {% endif %}
+      <h2>{{ card.name }}</h2>
+    </div>
+
+    <div class="card-show-barcode" id="barcode-trigger">
+      {{ barcode_svg|raw }}
+    </div>
+
+    <div class="card-show-number">{{ card.number }}</div>
+
+    <div class="card-show-actions">
+      <a href="/" class="btn">← Back</a>
+      <a href="/cards/{{ card.id }}/edit" class="btn">Edit</a>
+    </div>
+  </div>
+
+  <div class="barcode-fullscreen" id="barcode-fullscreen">
+    <div class="barcode-fullscreen-content">
+      {{ barcode_svg|raw }}
+    </div>
+  </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var cardId = {{ card.id }};
+  var data = {};
+
+  function sendUsage() {
+    fetch('/api/cards/' + cardId + '/usage', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+  }
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      data.latitude = pos.coords.latitude;
+      data.longitude = pos.coords.longitude;
+      sendUsage();
+    }, sendUsage);
+  } else {
+    sendUsage();
+  }
+
+  // Keep screen awake while viewing the card
+  var wakeLock = null;
+  async function requestWakeLock() {
+    if ('wakeLock' in navigator) {
+      try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+    }
+  }
+  requestWakeLock();
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') requestWakeLock();
+  });
+
+  var trigger = document.getElementById('barcode-trigger');
+  var overlay = document.getElementById('barcode-fullscreen');
+
+  trigger.addEventListener('click', function() {
+    overlay.classList.add('active');
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(function() {});
+    }
+  });
+
+  overlay.addEventListener('click', function() {
+    overlay.classList.remove('active');
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    }
+  });
+
+  document.addEventListener('fullscreenchange', function() {
+    if (!document.fullscreenElement) {
+      overlay.classList.remove('active');
+    }
+  });
+})();
+</script>
+{% endblock %}

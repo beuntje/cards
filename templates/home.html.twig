@@ -1,0 +1,113 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}My Cards{% endblock %}
+{% block header %}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="toolbar">
+    <input type="text" id="card-search" placeholder="Search..." autofocus>
+    <select id="sort-select" title="Sort cards" class="sort-select">
+      <option value="smart" {{ sort == 'smart' ? 'selected' }}>Smart</option>
+      <option value="created_at" {{ sort == 'created_at' ? 'selected' }}>Newest</option>
+      <option value="name" {{ sort == 'name' ? 'selected' }}>Name</option>
+      <option value="usage" {{ sort == 'usage' ? 'selected' }}>Most used</option>
+      <option value="location" {{ sort == 'location' ? 'selected' }}>Nearby</option>
+    </select>
+    <a href="/cards/create" class="btn-icon" title="Add card">➕</a>
+    <a href="/logout" class="btn-icon" title="Logout">👤</a>
+  </div>
+
+  {% if cards is empty %}
+    <div class="empty-state">
+      <p>No cards yet. <a href="/cards/create">Add your first card!</a></p>
+    </div>
+  {% else %}
+    <div class="card-grid" id="card-grid">
+      {% for card in cards %}
+        <a href="/cards/{{ card.id }}/use" class="card-item" data-name="{{ card.name|lower }}" data-usage="{{ card.usage_count ?? 0 }}" data-created="{{ card.created_at }}" data-locations="{{ card.locations|default('[]') }}"{% if card.color or card.logo %} style="{% if card.color %}background-color: {{ card.color }};{% endif %}{% if card.logo %}background-image: url('{{ card.logo }}');{% endif %}"{% endif %}>
+          <div class="card-header">
+            <h3>{{ card.name }}</h3>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('card-search')?.addEventListener('input', function() {
+  const query = this.value.toLowerCase();
+  document.querySelectorAll('.card-item').forEach(function(card) {
+    card.style.display = card.dataset.name.includes(query) ? '' : 'none';
+  });
+});
+
+function distanceMeters(lat1, lng1, lat2, lng2) {
+  var R = 6371000;
+  var dLat = (lat2 - lat1) * Math.PI / 180;
+  var dLng = (lng2 - lng1) * Math.PI / 180;
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function smartSortCards(lat, lng) {
+  var grid = document.getElementById('card-grid');
+  var cards = Array.from(grid.querySelectorAll('.card-item'));
+
+  cards.sort(function(a, b) {
+    var aLocs = JSON.parse(a.dataset.locations || '[]');
+    var bLocs = JSON.parse(b.dataset.locations || '[]');
+
+    // Check if any location is within 1km
+    var aNearby = aLocs.some(function(l) { return distanceMeters(lat, lng, l.lat, l.lng) <= 1000; });
+    var bNearby = bLocs.some(function(l) { return distanceMeters(lat, lng, l.lat, l.lng) <= 1000; });
+
+    if (aNearby !== bNearby) return aNearby ? -1 : 1;
+
+    // Then by usage count
+    var aUsage = parseInt(a.dataset.usage) || 0;
+    var bUsage = parseInt(b.dataset.usage) || 0;
+    if (aUsage !== bUsage) return bUsage - aUsage;
+
+    // Then by creation date (newest first)
+    return (b.dataset.created || '').localeCompare(a.dataset.created || '');
+  });
+
+  cards.forEach(function(card) { grid.appendChild(card); });
+}
+
+function navigateWithSort() {
+  const sort = document.getElementById('sort-select').value;
+  if (sort === 'smart') {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        smartSortCards(pos.coords.latitude, pos.coords.longitude);
+      }, function() {
+        smartSortCards(null, null);
+      });
+    } else {
+      smartSortCards(null, null);
+    }
+    return;
+  }
+  window.location = '/?sort=' + sort;
+}
+
+// Client-side smart sort on load
+(function() {
+  var sort = document.getElementById('sort-select').value;
+  if (sort === 'smart' && navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      smartSortCards(pos.coords.latitude, pos.coords.longitude);
+    });
+  }
+})();
+
+document.getElementById('sort-select').addEventListener('change', navigateWithSort);
+</script>
+{% endblock %}
