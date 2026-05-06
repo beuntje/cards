@@ -2,7 +2,7 @@
 
 Open-source loyalty card manager — store all your membership and loyalty cards in one place.
 
-🔗 **Demo:** [card.beun.be](https://card.beun.be)
+🔗 **Demo:** [cards.beun.be](https://cards.beun.be)
 
 ## Features
 
