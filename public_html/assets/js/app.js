@@ -1,5 +1,8 @@
 // Register service worker
 if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'CONTENT_UPDATED') window.location.reload();
+  });
   navigator.serviceWorker.register('/sw.js').then(function (reg) {
     // Pre-cache all card show pages when on homepage
     if (window.location.pathname === '/' || window.location.pathname === '') {

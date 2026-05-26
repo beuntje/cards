@@ -45,6 +45,9 @@ nav {
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 .logo:hover { text-decoration: none; }
 .nav-right {

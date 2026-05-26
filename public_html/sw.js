@@ -1,4 +1,4 @@
-var CACHE_NAME = 'cards-v2';
+var CACHE_NAME = 'cards-v3';
 var STATIC_ASSETS = [
   '/',
   '/assets/css/style.css',
@@ -34,33 +34,52 @@ self.addEventListener('fetch', function (e) {
   // Only handle same-origin GET requests
   if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
 
-  // Skip API requests from cache-first — always network-first
-  // Static assets: network-first, cache as fallback for offline
-  if (url.pathname.startsWith('/assets/')) {
+  // Cache-first for static assets
+  if (url.pathname.startsWith('/assets/') || url.pathname === '/manifest.json') {
     e.respondWith(
-      fetch(e.request).then(function (resp) {
-        var clone = resp.clone();
-        caches.open(CACHE_NAME).then(function (c) { c.put(e.request, clone); });
-        return resp;
-      }).catch(function () {
-        return caches.match(e.request);
+      caches.match(e.request).then(function (cached) {
+        if (cached) {
+          // Update cache in background
+          fetch(e.request).then(function (resp) {
+            if (resp.ok) caches.open(CACHE_NAME).then(function (c) { c.put(e.request, resp); });
+          }).catch(function () {});
+          return cached;
+        }
+        return fetch(e.request).then(function (resp) {
+          var clone = resp.clone();
+          caches.open(CACHE_NAME).then(function (c) { c.put(e.request, clone); });
+          return resp;
+        });
       })
     );
     return;
   }
 
-  // HTML pages & API: network-first, fallback to cache
+  // HTML pages: cache-first, reload page if content changed
   e.respondWith(
-    fetch(e.request).then(function (resp) {
-      // Don't cache redirects (auth redirects to /login)
-      if (resp.redirected || !resp.ok) return resp;
-      var clone = resp.clone();
-      caches.open(CACHE_NAME).then(function (c) { c.put(e.request, clone); });
-      return resp;
-    }).catch(function () {
-      return caches.match(e.request).then(function (cached) {
-        if (cached) return cached;
-        // If navigating and no cache, show offline fallback
+    caches.match(e.request).then(function (cached) {
+      if (cached) {
+        fetch(e.request).then(function (resp) {
+          if (!resp.ok || resp.redirected) return;
+          resp.clone().text().then(function (newBody) {
+            cached.clone().text().then(function (oldBody) {
+              caches.open(CACHE_NAME).then(function (c) { c.put(e.request, resp); });
+              if (newBody !== oldBody) {
+                self.clients.matchAll().then(function (clients) {
+                  clients.forEach(function (client) { client.postMessage({ type: 'CONTENT_UPDATED' }); });
+                });
+              }
+            });
+          });
+        }).catch(function () {});
+        return cached;
+      }
+      return fetch(e.request).then(function (resp) {
+        if (resp.redirected || !resp.ok) return resp;
+        var clone = resp.clone();
+        caches.open(CACHE_NAME).then(function (c) { c.put(e.request, clone); });
+        return resp;
+      }).catch(function () {
         if (e.request.headers.get('accept') && e.request.headers.get('accept').includes('text/html')) {
           return caches.match('/');
         }
