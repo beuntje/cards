@@ -5,6 +5,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.1] — 2026-11-17
+
+### Fixed
+- Include unzip in the webserver image so Composer can install dependencies at startup
+
 ## [1.1.0] — 2026-11-17
 
 ### Changed
@@ -36,6 +41,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - SSRF protection (HTTPS-only logo downloads)
 - Mobile-friendly responsive design
 
-[Unreleased]: https://github.com/beuntje/cards/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/beuntje/cards/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/beuntje/cards/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/beuntje/cards/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/beuntje/cards/releases/tag/v1.0.0
