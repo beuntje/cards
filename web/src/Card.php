@@ -170,7 +170,7 @@ class Card
             return null;
         }
 
-        $file = __DIR__ . '/../public_html' . $logoPath;
+        $file = __DIR__ . '/../public' . $logoPath;
         if (!file_exists($file)) {
             return null;
         }
@@ -252,7 +252,7 @@ class Card
             return null;
         }
 
-        $logoDir = __DIR__ . '/../public_html/logos';
+        $logoDir = __DIR__ . '/../public/logos';
         if (!is_dir($logoDir)) {
             mkdir($logoDir, 0755, true);
         }

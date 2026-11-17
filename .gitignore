@@ -1,4 +1,5 @@
-/vendor/
+/.idea/
 /.env*
-.idea/
-/public_html/logos/
+/data/
+/web/public/logos/
+/web/vendor/

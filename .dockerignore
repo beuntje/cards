@@ -1,0 +1,9 @@
+.env
+.env.*
+.git
+.idea
+data
+deploy
+web/tests
+web/vendor
+*.log

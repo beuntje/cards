@@ -4,18 +4,15 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use Dotenv\Dotenv;
 use Cards\Auth;
-use Cards\Database;
 use Cards\Router;
 use Cards\Controller\AuthController;
 use Cards\Controller\CardController;
 use Cards\Controller\ApiController;
 
-$dotenv = Dotenv::createImmutable(__DIR__ . '/..');
+$dotenv = Dotenv::createImmutable(__DIR__ . '/../..');
 $dotenv->safeLoad();
 
 $_ENV['TWIG_PATH'] = __DIR__ . '/../templates';
-
-Database::migrate();
 
 $method = $_SERVER['REQUEST_METHOD'];
 $path   = strtok($_SERVER['REQUEST_URI'], '?');

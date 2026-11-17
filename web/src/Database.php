@@ -3,7 +3,6 @@
 namespace Cards;
 
 use PDO;
-use PDOException;
 
 class Database
 {
@@ -13,12 +12,13 @@ class Database
     {
         if (self::$instance === null) {
             $host = $_ENV['DB_HOST'] ?? 'database';
+            $port = $_ENV['DB_PORT'] ?? '3306';
             $name = $_ENV['DB_NAME'] ?? 'lamp';
             $user = $_ENV['DB_USER'] ?? 'lamp';
             $pass = $_ENV['DB_PASSWORD'] ?? 'lamp';
 
             self::$instance = new PDO(
-                "mysql:host={$host};dbname={$name};charset=utf8mb4",
+                "mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4",
                 $user,
                 $pass,
                 [

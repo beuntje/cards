@@ -21,79 +21,56 @@ Open-source loyalty card manager — store all your membership and loyalty cards
 
 | Layer | Technology |
 |-------|-----------|
-| Runtime | PHP 8.3 (Apache) |
-| Database | MySQL 8.0 |
+| Runtime | PHP 8.5 (Apache) |
+| Database | MySQL 8.4 |
 | Templating | Twig 3 |
 | Frontend | Vanilla JS + CSS |
 | Auth | JWT (firebase/php-jwt) |
 | Barcode generation | picqer/php-barcode-generator, chillerlan/php-qrcode |
 | Barcode scanning | html5-qrcode (ZXing-based) |
 | Environment | vlucas/phpdotenv |
-| Local dev | Lando (LAMP recipe) |
+| Local development and deployment | Docker Compose with ModSecurity |
 
 ## Requirements
 
-- PHP 8.3+
-- MySQL 8.0+
-- Composer 2
-- Apache with mod_rewrite
+- Docker Engine with Docker Compose
+- Python 3 for volume and `.env` provisioning
 
 ## Installation
 
 ```bash
 git clone https://github.com/beuntje/cards.git
 cd cards
-cp .env.example .env
-composer install
+./deploy/start.sh
 ```
 
-Edit `.env` with your database credentials and a random `JWT_SECRET`.
+This creates `.env` with generated database/JWT secrets, provisions the
+project-owned data volumes, starts PHP 8.5, MySQL 8.4 and ModSecurity, then
+applies the database schema. `.env` is not overwritten if it already exists.
+The app is available at `http://127.0.0.1:8102`; configure `HTTP_PORT`,
+`APP_URL`, and `APP_ENV` in `.env` as needed. Only the ModSecurity service
+publishes a host port, bound to loopback.
 
-### Database Setup
-
-Create the MySQL database and run the schema:
-
-```sql
-CREATE DATABASE cards;
-
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL
-);
-
-CREATE TABLE cards (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    number VARCHAR(255) NOT NULL,
-    barcode_type VARCHAR(50),
-    favorite TINYINT(1) DEFAULT 0,
-    logo VARCHAR(255),
-    color VARCHAR(7),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE card_usage (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    card_id INT NOT NULL,
-    used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    latitude DECIMAL(10, 8),
-    longitude DECIMAL(11, 8),
-    FOREIGN KEY (card_id) REFERENCES cards(id)
-);
-```
-
-### Local Development with Lando
-
+Useful commands:
 ```bash
-lando start
-lando composer install
+./deploy/check.sh
+./deploy/restart-containers.sh
+./deploy/update-containers.sh
+docker compose logs --tail=50 cards-webserver cards-modsecurity
+docker compose down
 ```
 
-The app will be available at `https://cards.lndo.site`.
+The app uses the `cards` project name and the fixed services
+`cards-webserver`, `cards-modsecurity`, and `cards-database`. MySQL is not
+published to the host. For production, set `APP_URL` to the HTTPS site URL,
+`APP_ENV=production`, and choose a suitable `HTTP_PORT` for the existing proxy.
+
+Persistent database and logo data live under `data/mysql/` and `data/logos/`,
+backed by the external volumes `cards-data-mysql` and `cards-data-logos`.
+Container recreation does not remove these volumes. Do not remove the volumes
+or edit a running MySQL data directory when updating the containers.
+On first database initialization, MySQL writes its generated root password to
+the database logs; treat those logs as sensitive.
 
 ## Environment Variables
 
@@ -102,22 +79,24 @@ The app will be available at `https://cards.lndo.site`.
 | `APP_NAME` | Application name |
 | `APP_ENV` | Environment (`production` or `development`) |
 | `APP_URL` | Base URL of the application |
-| `TWIG_PATH` | Path to Twig templates directory |
-| `DB_HOST` | Database host |
-| `DB_USER` | Database username |
-| `DB_PASSWORD` | Database password |
-| `DB_NAME` | Database name |
+| `HTTP_PORT` | Loopback port published by ModSecurity |
+| `DB_NAME` | MySQL database name |
+| `DB_USER` | MySQL application username |
+| `DB_PASSWORD` | MySQL application password |
 | `JWT_SECRET` | Secret key for JWT token signing |
-| `LOGO_DEV_TOKEN` | logo.dev API public key |
-| `LOGO_DEV_SECRET` | logo.dev API secret key |
+| `LOGO_DEV_TOKEN` | Optional logo.dev API public key |
+| `LOGO_DEV_SECRET` | Optional logo.dev API secret key |
 
 ## Project Structure
 
 ```
-public_html/       → Webroot (index.php, assets, service worker)
-src/               → PHP classes (PSR-4: Cards\)
-templates/         → Twig templates
-vendor/            → Composer dependencies (gitignored)
+docker/            → PHP/Apache, MySQL and ModSecurity build definitions
+deploy/            → Setup, start, check and container maintenance scripts
+web/public/        → Webroot (index.php, assets, service worker)
+web/src/           → PHP classes (PSR-4: Cards\)
+web/templates/     → Twig templates
+web/vendor/        → Composer dependencies (generated in webserver container)
+data/              → Persistent MySQL and logo storage (gitignored)
 ```
 
 ## License

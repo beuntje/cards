@@ -1,0 +1,111 @@
+name: cards
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  cards-webserver:
+    container_name: cards-webserver
+    build:
+      context: .
+      dockerfile: docker/webserver/Dockerfile
+    restart: unless-stopped
+    working_dir: /var/www/app/web
+    environment:
+      APP_NAME: ${APP_NAME:-Cards}
+      APP_ENV: ${APP_ENV:-production}
+      APP_URL: ${APP_URL:-https://card.beun.be}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET ontbreekt}
+      DB_HOST: cards-database
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME:?DB_NAME ontbreekt}
+      DB_USER: ${DB_USER:?DB_USER ontbreekt}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD ontbreekt}
+      LOGO_DEV_TOKEN: ${LOGO_DEV_TOKEN:-}
+      LOGO_DEV_SECRET: ${LOGO_DEV_SECRET:-}
+    volumes:
+      - type: volume
+        source: logos
+        target: /var/www/app/web/public/logos
+        volume:
+          nocopy: true
+    networks:
+      - default
+      - database
+    depends_on:
+      cards-database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1/login') !== false ? 0 : 1);"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+      start_interval: 2s
+    logging: *logging
+
+  cards-modsecurity:
+    container_name: cards-modsecurity
+    build:
+      context: docker/modsecurity
+    restart: unless-stopped
+    environment:
+      BACKEND: http://cards-webserver:80
+      PORT: "8080"
+      PROXY_HOST_HEADER: "$$http_host"
+      NGINX_X_FORWARDED_PORT: ${HTTP_PORT:?HTTP_PORT ontbreekt}
+    ports:
+      - "127.0.0.1:${HTTP_PORT:?HTTP_PORT ontbreekt}:8080"
+    depends_on:
+      cards-webserver:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8080/login"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+      start_interval: 2s
+    logging: *logging
+
+  cards-database:
+    container_name: cards-database
+    build:
+      context: docker/database
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:?DB_NAME ontbreekt}
+      MYSQL_USER: ${DB_USER:?DB_USER ontbreekt}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD ontbreekt}
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    volumes:
+      - type: volume
+        source: database_data
+        target: /var/lib/mysql
+        volume:
+          nocopy: true
+    networks:
+      - database
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql --protocol=tcp --host=127.0.0.1 --user=\"$$MYSQL_USER\" --database=\"$$MYSQL_DATABASE\" --execute='SELECT 1' --silent >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+      start_interval: 2s
+    logging: *logging
+
+networks:
+  database:
+    internal: true
+
+volumes:
+  database_data:
+    name: cards-data-mysql
+    external: true
+  logos:
+    name: cards-data-logos
+    external: true

@@ -3,32 +3,37 @@
 ## Project overview
 Open Source Loyalty Card Manager. Users can store, manage, and scan loyalty/membership cards.
 Live domain: **https://card.beun.be**
-Local dev: **https://cards.lndo.site** (Lando)
+Local dev: **http://127.0.0.1:8102** (Docker Compose)
 
 ## Tech stack
 | Layer | Choice |
 |---|---|
-| Runtime | PHP 8.3 (Apache via Lando LAMP recipe) |
-| Database | MySQL 8.0 |
+| Runtime | PHP 8.5 (Apache) |
+| Database | MySQL 8.4 |
 | Frontend | Vanilla JS + plain CSS (no frameworks) |
-| Package manager | Composer 2 (`lando composer`) |
+| Package manager | Composer 2 (installed at webserver startup) |
 | Auth | JWT (firebase/php-jwt), token stored in cookies |
 | Templates | Twig 3 |
 | Barcode generation | picqer/php-barcode-generator, chillerlan/php-qrcode |
 | Barcode scanning | html5-qrcode (ZXing-based, client-side JS) |
 
 ## Project structure
-- `public_html/` — webroot (index.php, .htaccess, assets/, service worker)
-- `src/` — PHP classes (PSR-4: Cards\)
-- `templates/` — Twig templates
-- `vendor/` — Composer dependencies (gitignored)
+- `web/public/` — webroot (index.php, assets/, service worker)
+- `web/src/` — PHP classes (PSR-4: Cards\)
+- `web/templates/` — Twig templates
+- `web/vendor/` — Composer dependencies (generated in container)
+- `docker/` — PHP/Apache, MySQL and ModSecurity builds
+- `deploy/` — Compose setup and maintenance scripts
+- `data/` — persistent database and logo storage (gitignored)
 
 ## Key conventions
-- Routing: all requests routed through `public_html/index.php` via .htaccess
-- Templates: Twig 3, base layout in `templates/base.html.twig`
+- Routing: all requests routed through `web/public/index.php` via .htaccess
+- Templates: Twig 3, base layout in `web/templates/base.html.twig`
 - Env vars: loaded via vlucas/phpdotenv from `.env`
 - Auth: JWT tokens in cookies, 1 year expiry, auto-refresh after 1 month
-- PWA: service worker + manifest.json in public_html/
+- PWA: service worker + manifest.json in `web/public/`
+- Runtime: Docker Compose only; PHP 8.5, MySQL 8.4, and ModSecurity
+- Persistent volumes: `cards-data-mysql` and `cards-data-logos`
 
 ## Database schema
 - `users`: id, email, password
@@ -50,12 +55,11 @@ Local dev: **https://cards.lndo.site** (Lando)
 - PWA installable (manifest + service worker)
 
 ## Environment variables
-APP_NAME, APP_ENV, APP_URL, TWIG_PATH, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, JWT_SECRET, LOGO_DEV_TOKEN, LOGO_DEV_SECRET
+APP_NAME, APP_ENV, APP_URL, HTTP_PORT, DB_USER, DB_PASSWORD, DB_NAME, JWT_SECRET, LOGO_DEV_TOKEN, LOGO_DEV_SECRET
 
-## Lando commands
-lando start / stop / rebuild -y
-lando composer <args>
-lando info
+## Docker Compose commands
+`./deploy/start.sh` / `./deploy/check.sh` / `./deploy/restart-containers.sh`
+`./deploy/update-containers.sh`
 
 ## Changelog & Git
 - Always update CHANGELOG.md in every commit

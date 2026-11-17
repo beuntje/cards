@@ -90,7 +90,7 @@ class ApiController
             return;
         }
 
-        $logoDir = dirname(__DIR__, 2) . '/public_html/logos';
+        $logoDir = dirname(__DIR__, 2) . '/public/logos';
         if (!is_dir($logoDir)) {
             mkdir($logoDir, 0755, true);
         }

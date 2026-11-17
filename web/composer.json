@@ -1,5 +1,6 @@
 {
   "name": "beuntje/cards",
+  "license": "GPL-3.0-only",
   "require": {
     "php": "^8.0",
     "twig/twig": "^3.0",
