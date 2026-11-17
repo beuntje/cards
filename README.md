@@ -54,10 +54,20 @@ publishes a host port, bound to loopback.
 Useful commands:
 ```bash
 ./deploy/check.sh
+./docker/database/connect.sh
 ./deploy/restart-containers.sh
 ./deploy/update-containers.sh
 docker compose logs --tail=50 cards-webserver cards-modsecurity
 docker compose down
+```
+
+The database helper automatically authenticates as the application user inside
+the running database container, without putting the password in arguments.
+It also accepts MySQL options and piped SQL:
+
+```sh
+./docker/database/connect.sh --execute='SELECT 1'
+printf 'SELECT 1;\n' | ./docker/database/connect.sh --batch
 ```
 
 The app uses the `cards` project name and the fixed services

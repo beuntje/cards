@@ -5,6 +5,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-11-17
+
+### Added
+- Add a database connection helper with automatic application-user authentication, MySQL options, and piped SQL support
+
 ## [1.1.1] — 2026-11-17
 
 ### Fixed
@@ -41,7 +46,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - SSRF protection (HTTPS-only logo downloads)
 - Mobile-friendly responsive design
 
-[Unreleased]: https://github.com/beuntje/cards/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/beuntje/cards/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/beuntje/cards/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/beuntje/cards/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/beuntje/cards/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/beuntje/cards/releases/tag/v1.0.0
